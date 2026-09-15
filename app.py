@@ -1,21 +1,18 @@
 # ==============================
 # IMPORTATION
 # ==============================
-import gradio as gr
+import streamlit as st
 import joblib as jb
 import numpy as np
+import pandas as pd
 
 
 # ==============================
-# CHARGEMENT DES ENCODEURS
+# CHARGEMENT DES FICHIERS
 # ==============================
-encoders = jb.load('encoders.joblib')
-
-
-# ==============================
-# CHARGEMENT DU PIPELINE XGBOOST
-# ==============================
-rf_model = jb.load('pipe_from_grid_rf.joblib')
+encoders = jb.load('encoders_reg.joblib')
+rf_model = jb.load('pipe_from_grid_rf_reg.joblib')
+uniques = jb.load('uniques_reg.joblib')
 
 
 # ==============================
@@ -47,7 +44,11 @@ def Pred_func(kms_driven, present_price, fuel_type,
 
     # Retourner le prix prédit
     return round(float(y_pred[0]), 2)
-# Fonction de prédiction multiple
+
+
+# ==============================
+# FONCTION DE PREDICTION MULTIPLE
+# ==============================
 def Pred_func_csv(file):
 
     # Lire le fichier CSV
@@ -58,7 +59,6 @@ def Pred_func_csv(file):
     # Parcourir les lignes du dataframe
     for _, row in df.iterrows():
 
-        # Prédiction
         y_pred = Pred_func(
             row['Kms_Driven'],
             row['Present_Price'],
@@ -73,100 +73,134 @@ def Pred_func_csv(file):
     # Ajouter les prédictions
     df['Selling_Price_Predite'] = predictions
 
-    # Sauvegarder le fichier
-    df.to_csv('predictions.csv', index=False)
-
-    # Retourner le fichier
-    return 'predictions.csv'
-  # Définir les blocks
-demo = gr.Blocks(theme='shivi/calm_seafoam')
+    return df
 
 
 # ==============================
+# CONFIGURATION DE LA PAGE
+# ==============================
+st.set_page_config(
+    page_title="Prédiction du prix d'une voiture",
+    page_icon="🚗",
+    layout="centered"
+)
+
+
+# ==============================
+# TITRE
+# ==============================
+st.title("🚗 Prédiction du prix d'une voiture")
+
+st.write(
+    """
+    Cette application permet de prédire le prix de vente d'une voiture
+    à partir de ses caractéristiques.
+    """
+)
+
+
+# ==============================
+# ONGLETS
+# ==============================
+tab1, tab2 = st.tabs([
+    "🔮 Prédiction simple",
+    "📂 Prédiction multiple"
+])
+
+
+# ==========================================================
 # INTERFACE 1 : PRÉDICTION SIMPLE
-# ==============================
+# ==========================================================
+with tab1:
 
-inputs = [
-    gr.Number(label='Kilométrage (Kms_Driven)'),
-    
-    gr.Number(label='Prix actuel (Present_Price)'),
-    
-    gr.Dropdown(
-        choices=uniques[0],
-        label='Type de carburant (Fuel_Type)'
-    ),
-    
-    gr.Dropdown(
-        choices=uniques[1],
-        label='Type de vendeur (Seller_Type)'
-    ),
-    
-    gr.Dropdown(
-        choices=uniques[2],
-        label='Transmission'
-    ),
-    
-    gr.Number(label='Âge du véhicule (Age)')
-]
+    st.subheader("Prédiction du prix d'une voiture")
 
-
-# Sortie
-outputs = gr.Number(label='Prix de vente prédit')
-
-
-# Interface 1
-interface1 = gr.Interface(
-    fn=Pred_func,
-    inputs=inputs,
-    outputs=outputs,
-    title="Prédiction du prix d'une voiture",
-    description="""
-    Ce modèle permet de prédire le prix de vente d'une voiture
-    à partir du kilométrage, du prix actuel, du type de carburant,
-    du type de vendeur, de la transmission et de l'âge du véhicule.
-    """
-)
-
-
-# ==============================
-# INTERFACE 2 : PRÉDICTION MULTIPLE
-# ==============================
-
-interface2 = gr.Interface(
-    fn=Pred_func_csv,
-    
-    inputs=gr.File(
-        label='Importer un fichier CSV',
-        file_types=['.csv']
-    ),
-    
-    outputs=gr.File(
-        label='Télécharger les prédictions'
-    ),
-    
-    title="Prédiction multiple du prix des voitures",
-    
-    description="""
-    Importez un fichier CSV contenant les caractéristiques des voitures.
-    Le modèle prédira automatiquement le prix de vente de chaque voiture.
-    """
-)
-
-
-# ==============================
-# TABBING DES INTERFACES
-# ==============================
-
-with demo:
-    gr.TabbedInterface(
-        [interface1, interface2],
-        ['Prédiction simple', 'Prédiction multiple']
+    kms_driven = st.number_input(
+        "Kilométrage (Kms_Driven)",
+        min_value=0.0,
+        value=50000.0
     )
 
+    present_price = st.number_input(
+        "Prix actuel (Present_Price)",
+        min_value=0.0,
+        value=5.0
+    )
 
-# ==============================
-# LANCEMENT
-# ==============================
+    fuel_type = st.selectbox(
+        "Type de carburant (Fuel_Type)",
+        uniques[0]
+    )
 
-demo.launch(share=True)
+    seller_type = st.selectbox(
+        "Type de vendeur (Seller_Type)",
+        uniques[1]
+    )
 
+    transmission = st.selectbox(
+        "Transmission",
+        uniques[2]
+    )
+
+    age = st.number_input(
+        "Âge du véhicule (Age)",
+        min_value=0.0,
+        value=5.0
+    )
+
+    if st.button("🚀 Prédire le prix"):
+
+        prediction = Pred_func(
+            kms_driven,
+            present_price,
+            fuel_type,
+            seller_type,
+            transmission,
+            age
+        )
+
+        st.success(
+            f"💰 Prix de vente prédit : {prediction:.2f} k$"
+        )
+
+
+# ==========================================================
+# INTERFACE 2 : PRÉDICTION MULTIPLE
+# ==========================================================
+with tab2:
+
+    st.subheader("Prédiction multiple")
+
+    st.write(
+        """
+        Importez un fichier CSV contenant les caractéristiques
+        des voitures.
+        """
+    )
+
+    uploaded_file = st.file_uploader(
+        "Choisir un fichier CSV",
+        type=["csv"]
+    )
+
+    if uploaded_file is not None:
+
+        if st.button("🚀 Lancer les prédictions"):
+
+            result_df = Pred_func_csv(uploaded_file)
+
+            st.success("Les prédictions ont été effectuées.")
+
+            # Afficher les résultats
+            st.dataframe(result_df)
+
+            # Créer le fichier CSV
+            csv = result_df.to_csv(index=False).encode("utf-8")
+
+            # Bouton de téléchargement
+            st.download_button(
+                label="⬇️ Télécharger les prédictions",
+                data=csv,
+                file_name="predictions.csv",
+                mime="text/csv"
+            )
