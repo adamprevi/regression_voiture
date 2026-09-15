@@ -10,9 +10,9 @@ import pandas as pd
 # ==============================
 # CHARGEMENT DES FICHIERS
 # ==============================
-encoders = jb.load('encoders_reg.joblib')
-rf_model = jb.load('pipe_from_grid_rf_reg.joblib')
-uniques = jb.load('uniques_reg.joblib')
+encoders = jb.load('encoders.joblib')
+rf_model = jb.load('pipe_from_grid_rf.joblib')
+uniques = jb.load('uniques.joblib')
 
 
 # ==============================
